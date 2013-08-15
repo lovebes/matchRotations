@@ -26,6 +26,7 @@ self-consistent between the two files.
 
 """
 import sys
+from collections import Counter
 
 
 class Person:
@@ -113,8 +114,6 @@ class Woman(Person):
         for rank in range(len(priorities)):
             self.ranking[priorities[rank]] = rank
 
-        self.evenDenyArr = [] #list of hubby not to add if want to make even hubbys (even Male, even Female)
-
 	self.husbands = int(husbandReq) #will be populated by file
 
 	self.husbandsArr = [] #limit by self.husbands. Array of int that are index values of priorities array.
@@ -139,7 +138,11 @@ class Woman(Person):
         #checking  B7 types:
             # if wife is not 'B7' type, hubby is 'B7' type : just say no!!
         if self.eqHubbyType(suitor, 'B7') and self.myType != "B7": #hubby is 'B7'
-                return False
+            return False
+
+        #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
+        if suitor in globalEilatDenyArr and self.myType == "Eilat":
+            return False            
 
         #normal comparison
         if len(self.husbandsArr) == self.husbands: #if husbandsArr full, see if suitor is a better match.
@@ -186,10 +189,6 @@ class Woman(Person):
     def addHubby(self,hubbyName):
         self.husbandsArr.append(self.ranking[hubbyName])
         self.husbandsArr.sort()
-
-    def addEvenDeny(self,hubbyName):#used for Eilat
-        self.evenDenyArr.append(self.ranking[hubbyName])
-        self.evenDenyArr.sort()
 
     def popHubby(self):
         #return name of popped hubby
@@ -267,9 +266,16 @@ def printPairings2(menArr):
     for man in menArr:
         #print man[1].name.ljust(10,' '),str(man[1].partner),'\tno '+str(man[1].proposalIndex)+' in preference'
         newArr.append([man[1].name,str(man[1].partner),man[1].proposalIndex])
-    newArr.sort(key=lambda x: x[1])
+    newArr.sort(key=lambda x: x[2])
     for man in newArr:
         print "Site: "+man[1].ljust(10,' ')+man[0].ljust(10,' ')+str(man[2])+" in preference"
+
+    countArr = []
+    for man in newArr:
+        countArr.append(man[2])
+    c = Counter(countArr)
+    print str(c[1])+'\t'+str(c[2])+'\t'+str(c[3])+'\t'+str(c[4])+'\t'+str(c[5])+'\t'+str(c[6])+'\t'+str(c[7])+'\t'+str(c[8])
+
 
 def printPairings3(womenArr,men, doCSV):
     newArr = []	
@@ -300,93 +306,102 @@ def dict2Arr(dictionary):
 	    dictlist.append(temp)
 	return dictlist
 
+globalEilatDenyArr = []
 
-if __name__=="__main__":
-    verbose = len(sys.argv)>6
-    # get a list of the special condition husbands that can only match to special wives. arg #5
-    specHubbyArr = parseFile(sys.argv[5])
+def mainfunc():
 
-    # get a list of special sites #4 - type and siteArray dictionary.
-    specWivesArr = parseFile(sys.argv[4])
+    if __name__=="__main__":
+        global globalEilatDenyArr
+        verbose = len(sys.argv)>6
+        # get a list of the special condition husbands that can only match to special wives. arg #5
+        specHubbyArr = parseFile(sys.argv[5])
 
-    # initialize dictionary of men
-    menlist = parseFile(sys.argv[1])
-    men = dict()
-    for person in menlist:
-        men[person[0]] = Man(person[0],person[1],specHubbyArr)
-    unwedMen = men.keys()
-    
-    # initialize dictionary of women
-    womenlist = parseFile(sys.argv[2])
-    husbandReqs = parseFile2(sys.argv[3])
-    dictOne = dict(womenlist)
-    dictTwo = dict(husbandReqs)
-    combined = dict()
-    for name in set(dictOne.keys() + dictTwo.keys()):
-        combined[name] = [dictOne.get(name,0), dictTwo.get(name,0)]
-    combinedWomen = []
-    for name in combined:
-        combinedWomen.append([ name ] + combined[name])
+        # get a list of special sites #4 - type and siteArray dictionary.
+        specWivesArr = parseFile(sys.argv[4])
 
-    women = dict()
-    for person in combinedWomen:
-        women[person[0]] = Woman(person[0],person[1],person[2],specWivesArr,specHubbyArr)
+        # initialize dictionary of men
+        menlist = parseFile(sys.argv[1])
+        men = dict()
+        for person in menlist:
+            men[person[0]] = Man(person[0],person[1],specHubbyArr)
+        unwedMen = men.keys()
+        
+        # initialize dictionary of women
+        womenlist = parseFile(sys.argv[2])
+        husbandReqs = parseFile2(sys.argv[3])
+        dictOne = dict(womenlist)
+        dictTwo = dict(husbandReqs)
+        combined = dict()
+        for name in set(dictOne.keys() + dictTwo.keys()):
+            combined[name] = [dictOne.get(name,0), dictTwo.get(name,0)]
+        combinedWomen = []
+        for name in combined:
+            combinedWomen.append([ name ] + combined[name])
 
-    doEvenHubby = True
-    ############################### the real algorithm ##################################
-    while unwedMen:
-        m = men[unwedMen[0]]             # pick arbitrary unwed man
-        w = women[m.nextProposal()]      # identify highest-rank woman to which
-                                         #    m has not yet proposed
-        if verbose:  print m.name,'proposes to',w.name
+        women = dict()
+        for person in combinedWomen:
+            women[person[0]] = Woman(person[0],person[1],person[2],specWivesArr,specHubbyArr)
 
-        if w.evaluateProposal(m.name):#means m.name is better match
-            if verbose: print '  ',w.name,'accepts the proposal'
-            
-            if w.husbandsFull():
-                # last hubby in hubbyArr is dumped, as that is least suitable
-                mOld = men[w.popHubby()]
-                mOld.partner = None
-                unwedMen.append(mOld.name)
+        doEvenHubby = True
+        ############################### the real algorithm ##################################
+        while unwedMen:
+            m = men[unwedMen[0]]             # pick arbitrary unwed man
+            w = women[m.nextProposal()]      # identify highest-rank woman to which
+                                             #    m has not yet proposed
+            if verbose:  print m.name,'proposes to',w.name
+
+            if w.evaluateProposal(m.name):#means m.name is better match
+                if verbose: print '  ',w.name,'accepts the proposal'
                 
-                # then add the new man
-                w.addHubby(m.name)
-                unwedMen.remove(m.name)
-                m.partner = w.name
-                '''
-                if w.myType == "Eilat" and len(unwedMen) == 0: #all filled up. Now gotta check if this is even..
-                    if not w.isEvenHubArr(): #TODO: add the person to blacklist, reset/run again entire while loop
-                                            #or - just remove the person, forcing while loop to run again with m's next proposal..
-                        mOld = men[w.popHubby()]
-                        mOld.partner = None
-                        unwedMen.append(mOld.name)                        
-                        
-                '''
-            else:	
-                #if not full, and a nice suitor, just add him to the pack
+                if w.husbandsFull():
+                    # last hubby in hubbyArr is dumped, as that is least suitable
+                    mOld = men[w.popHubby()]
+                    mOld.partner = None
+                    unwedMen.append(mOld.name)
+                    
+                    # then add the new man
+                    w.addHubby(m.name)
+                    unwedMen.remove(m.name)
+                    m.partner = w.name
+                    
+                    if w.myType == "Eilat" and len(unwedMen) == 0: #all filled up. Now gotta check if this is even..
+                        if not w.isEvenHubArr():
+                            globalEilatDenyArr.append(m.name)
+                            
+                    
+                else:	
+                    #if not full, and a nice suitor, just add him to the pack
 
-                unwedMen.remove(m.name)
-                w.addHubby(m.name)
-                m.partner = w.name
-        else:
-            if verbose: print '  ',w.name,'rejects the proposal'
+                    unwedMen.remove(m.name)
+                    w.addHubby(m.name)
+                    m.partner = w.name
+            else:
+                if verbose: print '  ',w.name,'rejects the proposal'
 
 
 
 
-            
-        if verbose:
-            print "Tentative Pairings are as follows:"
-            printPairings(men)
-            print
+                
+            if verbose:
+                print "Tentative Pairings are as follows:"
+                printPairings(men)
+                print
 
-    #####################################################################################
-    menArr = dict2Arr(men)
-    menArr.sort(key=lambda x: x[0])
-    womenArr = dict2Arr(women)
-    womenArr.sort(key=lambda x: x[0])
- 
-    # we should be done
-    print "Final Pairings are as follows:"
-    printPairings2(menArr)
-    printPairings3(womenArr,men, True)
+        #####################################################################################
+        menArr = dict2Arr(men)
+        menArr.sort(key=lambda x: x[0])
+        womenArr = dict2Arr(women)
+        womenArr.sort(key=lambda x: x[0])
+     
+        # we should be done
+        print "Final Pairings are as follows:"
+        printPairings2(menArr)
+        printPairings3(womenArr,men, False)
+
+oldnum=len(globalEilatDenyArr)
+mainfunc()
+num = len(globalEilatDenyArr)
+while oldnum != num:
+    mainfunc()
+
+
