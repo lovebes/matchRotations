@@ -28,6 +28,9 @@ self-consistent between the two files.
 import sys
 from collections import Counter
 
+#GLobal variables
+globalEilatDenyArr = []
+globalLastB7Pairs = dict() #stores [name]=lastB7SiteinPref
 
 class Person:
     """
@@ -54,7 +57,7 @@ class Man(Person):
     """
     Represents a man
     """
-    def __init__(self,name,priorities,specialList):
+    def __init__(self,name,priorities,specialList, specSitesList):
         """
         name is a string which uniquely identifies this person
 
@@ -64,17 +67,40 @@ class Man(Person):
         Person.__init__(self,name,priorities)
         # flag if name matches name in specialList
         self.myType = "normal"
-        for special in specialList: # name = each of the stored special sites - eg 'B7', 'Eilat'
+        self.mySex = "Male"
+        for special in specialList: # get who's B7 restricted, Female, Male
             typeOf = special[0]            
-            for site in special[1]:        
-                if self.name == site: 
-                    self.myType = typeOf
-                    
+            for hubbyName in special[1]:        
+                if self.name == hubbyName:
+                    if typeOf != 'Male' and typeOf != 'Female': 
+                        self.myType = typeOf
+                        if typeOf == "B7":
+                            #get the least preferrable, last B7 site
 
+                            for siteT in specSitesList:
+                                if siteT[0] == 'B7':  # okay, found B7 site list
+                                    oldidx = -1
+                                    siteName=''
+                                    for site in siteT[1]: #for all the B7 sites
+                                        #find if site is in the priorities, and get the position
+                                        newidx = len(self.priorities)-1-self.priorities[::-1].index(site)
+                                        if newidx > oldidx:
+                                            oldidx = newidx
+                                            siteName = site
+                                    #store this combination in a global var
+                                    global globalLastB7Pairs
+                                    if oldidx > -1:
+                                        globalLastB7Pairs[self.name]= siteName #adding to dictionary
+                    else:
+                         if typeOf == 'Male' or typeOf == 'Female':
+                            self.mySex = typeOf
+                    
+        '''
         for name in specialList:
             if self.name == name:
                 self.amSpecial = True
                 print self.name+' is special'
+        '''                    
 
         self.proposalIndex = 0                   # next person in our list to whom we might propose
 
@@ -164,9 +190,12 @@ class Woman(Person):
                 return self.isEvenHubArr(futureHubArr) #algorithm wrong. Currently men runs out of choice.
                 '''                
 #                return self.isEvenHubArr() 
-            #check B7. If not a good suitor, but B7, just say yes and invoke inclusion/bumping of last one:
+            #check B7. If not a good suitor, but last B7, just say yes and invoke inclusion/bumping of last one:
             if self.myType == "B7" and self.eqHubbyType(suitor,'B7') and count == 0:
-                return True
+                if suitor in globalLastB7Pairs:
+                    if globalLastB7Pairs[suitor] == self.name: #so, the site IS the last B7 choice! So last choice.
+                        return True #gotta have suitor!
+            #normal flow:
             return count > 0
 
 	    #if husbandsArr not full, just say yes.
@@ -198,10 +227,16 @@ class Woman(Person):
             #1. reverse list
             rev = list(self.husbandsArr)
             rev.reverse() #it works because list is already sorted by rank
-            #2. for loop check if hubby is B7. Scan until find non-B7 hubby. Pop that!
+            #2. for loop check if hubby is B7. Scan until find non- LastB7 hubby. Pop that!
             name = ''
             for num in rev:
-                if not self.eqHubbyType(self.priorities[num],'B7'):
+                if self.priorities[num] in globalLastB7Pairs:
+                    if globalLastB7Pairs[self.priorities[num]] != self.name:#pop b/c not last B7
+                        rev.remove(num)
+                        name = self.priorities[num]
+                        break
+
+                else: #pop b/c not B7 person
                     rev.remove(num)
                     name = self.priorities[num]
                     break
@@ -306,7 +341,7 @@ def dict2Arr(dictionary):
 	    dictlist.append(temp)
 	return dictlist
 
-globalEilatDenyArr = []
+
 
 def mainfunc():
 
@@ -323,7 +358,7 @@ def mainfunc():
         menlist = parseFile(sys.argv[1])
         men = dict()
         for person in menlist:
-            men[person[0]] = Man(person[0],person[1],specHubbyArr)
+            men[person[0]] = Man(person[0],person[1],specHubbyArr, specWivesArr)
         unwedMen = men.keys()
         
         # initialize dictionary of women
