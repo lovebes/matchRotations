@@ -14,7 +14,7 @@ Usage is:
 
 or   
 
-   python marriage_addEilat.py  studentsChoice sitesRank sitesCapacity siteTypes specStudentList V
+   python matching_addEilat.py  studentsChoice sitesRank sitesCapacity siteTypes specStudentList V
 
 for verbose mode.   
 
@@ -187,9 +187,9 @@ class Woman(Person):
                 futureHubArr.pop()
                 futureHubArr.append(self.ranking[suitor])
                 print str(self.husbandsArr)+":"+str(futureHubArr) 
-                return self.isEvenHubArr(futureHubArr) #algorithm wrong. Currently men runs out of choice.
+                return self.validEilatCombo(futureHubArr) #algorithm wrong. Currently men runs out of choice.
                 '''                
-#                return self.isEvenHubArr() 
+#                return self.validEilatCombo() 
             #check B7. If not a good suitor, but last B7, just say yes and invoke inclusion/bumping of last one:
             if self.myType == "B7" and self.eqHubbyType(suitor,'B7') and count == 0:
                 if suitor in globalLastB7Pairs:
@@ -201,16 +201,22 @@ class Woman(Person):
 	    #if husbandsArr not full, just say yes.
         return len(self.husbandsArr) < self.husbands 
 
-    def isEvenHubArr(self):
-        count = 0
+    def validEilatCombo(self):# if 2:3 = OK. Any other: let the main loop work it!
+        cm = 0
+        cf = 0
         for hubby in self.husbandsArr: #hubby is an integer.
             hubbyName = self.priorities[hubby]
             for hubbyType in self.specHubbyArr:
                 if hubbyType[0] == "Male": #gotta check for this
                     for h in hubbyType[1]:
                         if h == hubbyName:
-                            count += 1
-        return count%2 == 0 #True if even.
+                            cm += 1
+                if hubbyType[0] == "Female": 
+                    for h in hubbyType[1]:
+                        if h == hubbyName:
+                            cf += 1
+                    
+        return cm == 2 or cm == 3 or cf == 5 or cm == 5 #will return True if valid
 
     def husbandsFull(self):
         return len(self.husbandsArr) == self.husbands
@@ -321,11 +327,11 @@ def printPairings3(womenArr,men, doCSV):
             partArr.append([woman[1].name,woman[1].priorities[hubby],hubby, men[woman[1].priorities[hubby]].proposalIndex])
         partArr.sort(key=lambda x: x[2])
         newArr.append(partArr)
-    if not doCSV:
-        for woman in newArr:
-            for hubby in woman:
-                print "Site: "+hubby[0].ljust(10,' ')+hubby[1].ljust(10,' ')+str(hubby[2]+1).ljust(3,' ')+"in Site's preference, "+str(hubby[3])+" in Student's preference"
-    else:
+
+    for woman in newArr:
+        for hubby in woman:
+            print "Site: "+hubby[0].ljust(10,' ')+hubby[1].ljust(10,' ')+str(hubby[2]+1).ljust(3,' ')+"in Site's preference, "+str(hubby[3])+" in Student's preference"
+    if doCSV:
         f = file('matched.csv','w')
         for woman in newArr:
             for hubby in woman:
@@ -399,11 +405,6 @@ def mainfunc():
                     unwedMen.remove(m.name)
                     m.partner = w.name
                     
-                    if w.myType == "Eilat" and len(unwedMen) == 0: #all filled up. Now gotta check if this is even..
-                        if not w.isEvenHubArr():
-                            globalEilatDenyArr.append(m.name)
-                            
-                    
                 else:	
                     #if not full, and a nice suitor, just add him to the pack
 
@@ -422,6 +423,11 @@ def mainfunc():
                 printPairings(men)
                 print
 
+        # Eilat Check
+        if not women['Eilat'].validEilatCombo():
+            globalEilatDenyArr.append(women['Eilat'].priorities[women['Eilat'].husbandsArr[-1]])
+                    
+
         #####################################################################################
         menArr = dict2Arr(men)
         menArr.sort(key=lambda x: x[0])
@@ -431,12 +437,13 @@ def mainfunc():
         # we should be done
         print "Final Pairings are as follows:"
         printPairings2(menArr)
-        printPairings3(womenArr,men, False)
+        printPairings3(womenArr,men, True)
 
 oldnum=len(globalEilatDenyArr)
 mainfunc()
 num = len(globalEilatDenyArr)
 while oldnum != num:
+    oldnum=num
     mainfunc()
-
+    num =len(globalEilatDenyArr)
 
