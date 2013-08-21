@@ -167,7 +167,7 @@ class Woman(Person):
             return False
 
         #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
-        if suitor in globalEilatDenyArr and self.myType == "Eilat":
+        if suitor in [name[0] for name in globalEilatDenyArr] and self.myType == "Eilat":
             return False            
 
         #normal comparison
@@ -424,8 +424,32 @@ def mainfunc():
                 print
 
         # Eilat Check
-        if not women['Eilat'].validEilatCombo():
-            globalEilatDenyArr.append(women['Eilat'].priorities[women['Eilat'].husbandsArr[-1]])
+        if not women['Eilat'].validEilatCombo():            
+        #we don't pick the last one. We pick such that globalEilatDenyArr ends up having one.
+            # if globalEilatDenyArr is zero, pick the last name in the priority. enter to globalEilatDenyArr
+            if len(globalEilatDenyArr) == 0:
+                denyName = women['Eilat'].priorities[women['Eilat'].husbandsArr[-1]]
+                denyType = men[denyName].mySex
+                globalEilatDenyArr.append([denyName,denyType])
+            else:
+            #globalEilatDenyArr has a name.
+                '''
+                It had a name before this run. And yet, we got here again.
+                We know who got denied last run. We know that person's sex.
+                This sex was not the right choice. So remove the current member in globalEilatDenyArr,
+                and add the lowest priority opposite sex.
+                '''
+                deniedSex = globalEilatDenyArr.pop()[1]
+                hublist = list(women['Eilat'].husbandsArr)
+                hublist.reverse() #reverse the list so for loop goes in lowest priority
+                
+                for hus in hublist:
+                    name = women['Eilat'].priorities[hus] #hus is an integer
+                    sex = men[name].mySex
+                    if sex != deniedSex: #got the person with a different sex
+                        #ok. add that to globalEilatDenyArr
+                        globalEilatDenyArr.append([name, sex])
+                    
                     
 
         #####################################################################################
@@ -439,11 +463,12 @@ def mainfunc():
         printPairings2(menArr)
         printPairings3(womenArr,men, True)
 
-oldnum=len(globalEilatDenyArr)
-mainfunc()
-num = len(globalEilatDenyArr)
-while oldnum != num:
-    oldnum=num
-    mainfunc()
-    num =len(globalEilatDenyArr)
+
+mainfunc() #if Eilat condition not met, this will alert
+if len(globalEilatDenyArr) != 0:
+    mainfunc() # Eilat condition is re-set, need to do a final run
+    mainfunc() # At this point, Eilat condition is finalized.
+
+
+
 
