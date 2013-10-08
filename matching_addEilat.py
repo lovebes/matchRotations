@@ -104,9 +104,11 @@ class Man(Person):
 
         self.proposalIndex = 0                   # next person in our list to whom we might propose
         #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
+        '''
         for x in globalEilatDenyArr:
             if x[0] == self.name:
                 self.blacklistWife(x[2])
+        '''
     def blacklistWife(self,name):
         #change priorities and rank
         WifeInt = self.priorities.index(name)
@@ -149,11 +151,12 @@ class Woman(Person):
         for rank in range(len(priorities)):
             self.ranking[priorities[rank]] = rank
         #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
+        '''
         if self.myType == "Eilat":
             for x in globalEilatDenyArr:
                 if x[2] == self.name:
                     self.blacklistHubby(x[0])
-
+        '''
 	self.husbands = int(husbandReq) #will be populated by file
 
 	self.husbandsArr = [] #limit by self.husbands. Array of int that are index values of priorities array.
@@ -182,9 +185,9 @@ class Woman(Person):
             return False
 
         #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
-        #if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
+        if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
             #one more check: if the globalEilatDenyArr
-        #    return False            
+            return False            
 
         #normal comparison
         if len(self.husbandsArr) == self.husbands: #if husbandsArr full, see if suitor is a better match.
