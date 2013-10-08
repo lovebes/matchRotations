@@ -103,6 +103,15 @@ class Man(Person):
         '''                    
 
         self.proposalIndex = 0                   # next person in our list to whom we might propose
+        #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
+        for x in globalEilatDenyArr:
+            if x[0] == self.name:
+                self.blacklistWife(x[2])
+    def blacklistWife(self,name):
+        #change priorities and rank
+        WifeInt = self.priorities.index(name)
+        self.priorities.pop(WifeInt)
+        self.priorities.append(name) #so the name is last of the priority. list shifted.
 
     def nextProposal(self):
         goal = self.priorities[self.proposalIndex]
@@ -139,6 +148,11 @@ class Woman(Person):
         self.ranking = {}
         for rank in range(len(priorities)):
             self.ranking[priorities[rank]] = rank
+        #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
+        if self.myType == "Eilat":
+            for x in globalEilatDenyArr:
+                if x[2] == self.name:
+                    self.blacklistHubby(x[0])
 
 	self.husbands = int(husbandReq) #will be populated by file
 
@@ -168,9 +182,9 @@ class Woman(Person):
             return False
 
         #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
-        if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
+        #if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
             #one more check: if the globalEilatDenyArr
-            return False            
+        #    return False            
 
         #normal comparison
         if len(self.husbandsArr) == self.husbands: #if husbandsArr full, see if suitor is a better match.
@@ -208,17 +222,45 @@ class Woman(Person):
         cf = 0
         for hubby in self.husbandsArr: #hubby is an integer.
             hubbyName = self.priorities[hubby]
-            for hubbyType in self.specHubbyArr:
-                if hubbyType[0] == "Male": #gotta check for this
-                    for h in hubbyType[1]:
-                        if h == hubbyName:
-                            cm += 1
-                if hubbyType[0] == "Female": 
-                    for h in hubbyType[1]:
-                        if h == hubbyName:
-                            cf += 1
-                    
-        return cm == 2 or cm == 3 or cf == 5 or cm == 5 #will return True if valid
+            if self.getSex(hubbyName) == "Male": 
+                cm += 1
+            elif self.getSex(hubbyName) == "Female":
+                cf += 1
+
+        maxN = self.husbands    
+        valid = cm == maxN/2 or cm == maxN/2+maxN%2 or cf == maxN or cm == maxN
+        if valid:
+            # pop this site out of globalEilatDenyArr
+            for x in globalEilatDenyArr:
+                if x[2] == self.name:
+                    globalEilatDenyArr.pop(globalEilatDenyArr.index(x))
+                    break
+        return valid #will return True if valid
+    def getEilatProbHubbyInt(self): #same as validEilatCombo but returns the hubby integer which is the culprit
+        cm = 0
+        mHubbyInt = -1
+        cf = 0
+        fHubbyInt = -1
+        maxN = self.husbands
+        for hubby in self.husbandsArr: #hubby is an integer. _HubbyInt stores least priority male or female
+            hubbyName = self.priorities[hubby]
+            if self.getSex(hubbyName) == "Male": 
+                mHubbyInt = hubby
+                cm += 1
+            elif self.getSex(hubbyName) == "Female":
+                fHubbyInt= hubby
+                cf += 1  
+            if cm + cf == maxN: #time find out the minority. This one will be shifted to the bottom of the priorities.
+                if cm < maxN/2: 
+                    return mHubbyInt
+                elif cf < maxN/2:
+                    return fHubbyInt
+    def blacklistHubby(self,name):
+        #change priorities and rank
+        HubbyInt = self.ranking[name]
+        self.priorities.pop(HubbyInt)
+        self.priorities.append(name) #so the name is last of the priority. list shifted.
+        self.ranking[self.priorities[-1]] = self.priorities.index(name)                              
 
     def husbandsFull(self):
         return len(self.husbandsArr) == self.husbands
@@ -427,21 +469,24 @@ def mainfunc():
         # Eilat Check - for each of woman that is under 'Eilat' condition, do the following!
         for eilatWoman in dict(specWivesArr)['Eilat']:
         #if 'Eilat' in women:
-            if not women[eilatWoman].validEilatCombo():            
+            if not women[eilatWoman].validEilatCombo():   
+                    
             #we don't pick the last one. We pick such that globalEilatDenyArr ends up having one.
                 # if globalEilatDenyArr is zero, pick the last name in the priority. enter to globalEilatDenyArr
                 if len(globalEilatDenyArr) == 0:
-                    denyName = women[eilatWoman].priorities[women[eilatWoman].husbandsArr[-1]]
+                    denyName = women[eilatWoman].priorities[women[eilatWoman].getEilatProbHubbyInt()]
                     denyType = men[denyName].mySex
                     globalEilatDenyArr.append([denyName,denyType,eilatWoman])#store the Eilat condition site name (3rd element)
                 else:
                 #globalEilatDenyArr has a name.
+                 
                     '''
                     It had a name before this run. And yet, we got here again.
                     We know who got denied last run. We know that person's sex.
                     This sex was not the right choice. So remove the current member in globalEilatDenyArr,
                     and add the lowest priority opposite sex.
                     '''
+          
                     deniedSex = globalEilatDenyArr.pop()[1]
                     hublist = list(women[eilatWoman].husbandsArr)
                     hublist.reverse() #reverse the list so for loop goes in lowest priority
@@ -451,9 +496,9 @@ def mainfunc():
                         sex = men[name].mySex
                         if sex != deniedSex: #got the person with a different sex
                             #ok. add that to globalEilatDenyArr
-                            globalEilatDenyArr.append([name, sex])
-                        
-                    
+                            globalEilatDenyArr.append([name, sex,eilatWoman])
+
+                   
 
         #####################################################################################
         menArr = dict2Arr(men)
@@ -470,6 +515,7 @@ def mainfunc():
 mainfunc() #if Eilat condition not met, this will alert
 if len(globalEilatDenyArr) != 0:
     mainfunc() # Eilat condition is re-set, need to do a final run
+if len(globalEilatDenyArr) != 0:
     mainfunc() # At this point, Eilat condition is finalized.
 
 
