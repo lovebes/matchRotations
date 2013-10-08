@@ -151,8 +151,9 @@ class Woman(Person):
                     if hubby == h:
                         return True
         return False
-            
-
+    def getSex(self, hubbyName):
+        if self.eqHubbyType(hubbyName,'Male'): return 'Male'
+        if self.eqHubbyType(hubbyName,'Female'): return 'Female'
     def evaluateProposal(self,suitor):
         """
         Evaluates a proposal, though does not enact it.
@@ -167,7 +168,8 @@ class Woman(Person):
             return False
 
         #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
-        if suitor in [name[0] for name in globalEilatDenyArr] and self.myType == "Eilat":
+        if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
+            #one more check: if the globalEilatDenyArr
             return False            
 
         #normal comparison
@@ -423,7 +425,7 @@ def mainfunc():
                 print
 
         # Eilat Check - for each of woman that is under 'Eilat' condition, do the following!
-        for eilatWoman in dict(specWivesArr)['eilat']:
+        for eilatWoman in dict(specWivesArr)['Eilat']:
         #if 'Eilat' in women:
             if not women[eilatWoman].validEilatCombo():            
             #we don't pick the last one. We pick such that globalEilatDenyArr ends up having one.
@@ -431,7 +433,7 @@ def mainfunc():
                 if len(globalEilatDenyArr) == 0:
                     denyName = women[eilatWoman].priorities[women[eilatWoman].husbandsArr[-1]]
                     denyType = men[denyName].mySex
-                    globalEilatDenyArr.append([denyName,denyType])
+                    globalEilatDenyArr.append([denyName,denyType,eilatWoman])#store the Eilat condition site name (3rd element)
                 else:
                 #globalEilatDenyArr has a name.
                     '''
