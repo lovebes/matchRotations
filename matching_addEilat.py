@@ -383,7 +383,7 @@ def mainfunc():
         for person in combinedWomen:
             women[person[0]] = Woman(person[0],person[1],person[2],specWivesArr,specHubbyArr)
 
-        doEvenHubby = True
+#        doEvenHubby = True
         ############################### the real algorithm ##################################
         while unwedMen:
             m = men[unwedMen[0]]             # pick arbitrary unwed man
@@ -422,13 +422,14 @@ def mainfunc():
                 printPairings(men)
                 print
 
-        # Eilat Check
-        if 'Eilat' in women:
-            if not women['Eilat'].validEilatCombo():            
+        # Eilat Check - for each of woman that is under 'Eilat' condition, do the following!
+        for eilatWoman in dict(specWivesArr)['eilat']:
+        #if 'Eilat' in women:
+            if not women[eilatWoman].validEilatCombo():            
             #we don't pick the last one. We pick such that globalEilatDenyArr ends up having one.
                 # if globalEilatDenyArr is zero, pick the last name in the priority. enter to globalEilatDenyArr
                 if len(globalEilatDenyArr) == 0:
-                    denyName = women['Eilat'].priorities[women['Eilat'].husbandsArr[-1]]
+                    denyName = women[eilatWoman].priorities[women[eilatWoman].husbandsArr[-1]]
                     denyType = men[denyName].mySex
                     globalEilatDenyArr.append([denyName,denyType])
                 else:
@@ -440,11 +441,11 @@ def mainfunc():
                     and add the lowest priority opposite sex.
                     '''
                     deniedSex = globalEilatDenyArr.pop()[1]
-                    hublist = list(women['Eilat'].husbandsArr)
+                    hublist = list(women[eilatWoman].husbandsArr)
                     hublist.reverse() #reverse the list so for loop goes in lowest priority
                     
                     for hus in hublist:
-                        name = women['Eilat'].priorities[hus] #hus is an integer
+                        name = women[eilatWoman].priorities[hus] #hus is an integer
                         sex = men[name].mySex
                         if sex != deniedSex: #got the person with a different sex
                             #ok. add that to globalEilatDenyArr
