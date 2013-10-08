@@ -104,11 +104,11 @@ class Man(Person):
 
         self.proposalIndex = 0                   # next person in our list to whom we might propose
         #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
-        '''
+
         for x in globalEilatDenyArr:
             if x[0] == self.name:
                 self.blacklistWife(x[2])
-        '''
+
     def blacklistWife(self,name):
         #change priorities and rank
         WifeInt = self.priorities.index(name)
