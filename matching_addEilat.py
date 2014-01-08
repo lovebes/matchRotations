@@ -10,7 +10,7 @@ Edited to be in polyandry mode, by lovbes
 Also accounts for special to special sub group matching. Special husbands can ONLY go into special wives.
 
 Usage is:
-   python matching_addEilat.py  studentsChoice sitesRank sitesCapacity siteTypes specStudentList
+   python matching.py  [studentsChoice] [sitesRank] [sitesCapacity] [siteTypes] [specStudentList]
 
 or   
 
@@ -27,10 +27,6 @@ self-consistent between the two files.
 """
 import sys
 from collections import Counter
-
-#GLobal variables
-globalEilatDenyArr = []
-globalLastB7Pairs = dict() #stores [name]=lastB7SiteinPref
 
 class Person:
     """
@@ -57,7 +53,7 @@ class Man(Person):
     """
     Represents a man
     """
-    def __init__(self,name,priorities,specialList, specSitesList):
+    def __init__(self,name,priorities,specialList):
         """
         name is a string which uniquely identifies this person
 
@@ -67,53 +63,19 @@ class Man(Person):
         Person.__init__(self,name,priorities)
         # flag if name matches name in specialList
         self.myType = "normal"
-        self.mySex = "Male"
-        for special in specialList: # get who's B7 restricted, Female, Male
+        for special in specialList: # name = each of the stored special sites - eg 'B7', 'Eilat'
             typeOf = special[0]            
-            for hubbyName in special[1]:        
-                if self.name == hubbyName:
-                    if typeOf != 'Male' and typeOf != 'Female': 
-                        self.myType = typeOf
-                        if typeOf == "B7":
-                            #get the least preferrable, last B7 site
-
-                            for siteT in specSitesList:
-                                if siteT[0] == 'B7':  # okay, found B7 site list
-                                    oldidx = -1
-                                    siteName=''
-                                    for site in siteT[1]: #for all the B7 sites
-                                        #find if site is in the priorities, and get the position
-                                        newidx = len(self.priorities)-1-self.priorities[::-1].index(site)
-                                        if newidx > oldidx:
-                                            oldidx = newidx
-                                            siteName = site
-                                    #store this combination in a global var
-                                    global globalLastB7Pairs
-                                    if oldidx > -1:
-                                        globalLastB7Pairs[self.name]= siteName #adding to dictionary
-                    else:
-                         if typeOf == 'Male' or typeOf == 'Female':
-                            self.mySex = typeOf
+            for site in special[1]:        
+                if self.name == site: 
+                    self.myType = typeOf
                     
-        '''
+
         for name in specialList:
             if self.name == name:
                 self.amSpecial = True
                 print self.name+' is special'
-        '''                    
 
         self.proposalIndex = 0                   # next person in our list to whom we might propose
-        #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
-
-        for x in globalEilatDenyArr:
-            if x[0] == self.name:
-                self.blacklistWife(x[2])
-
-    def blacklistWife(self,name):
-        #change priorities and rank
-        WifeInt = self.priorities.index(name)
-        self.priorities.pop(WifeInt)
-        self.priorities.append(name) #so the name is last of the priority. list shifted.
 
     def nextProposal(self):
         goal = self.priorities[self.proposalIndex]
@@ -150,13 +112,9 @@ class Woman(Person):
         self.ranking = {}
         for rank in range(len(priorities)):
             self.ranking[priorities[rank]] = rank
-        #Eilat type processing: if globalEilatDenyArr is NOT empty, you must process the blacklisted people!
-        '''
-        if self.myType == "Eilat":
-            for x in globalEilatDenyArr:
-                if x[2] == self.name:
-                    self.blacklistHubby(x[0])
-        '''
+
+        self.evenDenyArr = [] #list of hubby not to add if want to make even hubbys (even Male, even Female)
+
 	self.husbands = int(husbandReq) #will be populated by file
 
 	self.husbandsArr = [] #limit by self.husbands. Array of int that are index values of priorities array.
@@ -168,9 +126,8 @@ class Woman(Person):
                     if hubby == h:
                         return True
         return False
-    def getSex(self, hubbyName):
-        if self.eqHubbyType(hubbyName,'Male'): return 'Male'
-        if self.eqHubbyType(hubbyName,'Female'): return 'Female'
+            
+
     def evaluateProposal(self,suitor):
         """
         Evaluates a proposal, though does not enact it.
@@ -182,12 +139,7 @@ class Woman(Person):
         #checking  B7 types:
             # if wife is not 'B7' type, hubby is 'B7' type : just say no!!
         if self.eqHubbyType(suitor, 'B7') and self.myType != "B7": #hubby is 'B7'
-            return False
-
-        #checking Eilat types: just say no to those in blacklist, if wife is Eilat type
-        if self.myType == "Eilat" and [suitor,self.getSex(suitor),self.name] in globalEilatDenyArr:
-            #one more check: if the globalEilatDenyArr
-            return False            
+                return False
 
         #normal comparison
         if len(self.husbandsArr) == self.husbands: #if husbandsArr full, see if suitor is a better match.
@@ -206,64 +158,27 @@ class Woman(Person):
                 futureHubArr.pop()
                 futureHubArr.append(self.ranking[suitor])
                 print str(self.husbandsArr)+":"+str(futureHubArr) 
-                return self.validEilatCombo(futureHubArr) #algorithm wrong. Currently men runs out of choice.
+                return self.isEvenHubArr(futureHubArr) #algorithm wrong. Currently men runs out of choice.
                 '''                
-#                return self.validEilatCombo() 
-            #check B7. If not a good suitor, but last B7, just say yes and invoke inclusion/bumping of last one:
+#                return self.isEvenHubArr() 
+            #check B7. If not a good suitor, but B7, just say yes and invoke inclusion/bumping of last one:
             if self.myType == "B7" and self.eqHubbyType(suitor,'B7') and count == 0:
-                if suitor in globalLastB7Pairs:
-                    if globalLastB7Pairs[suitor] == self.name: #so, the site IS the last B7 choice! So last choice.
-                        return True #gotta have suitor!
-            #normal flow:
+                return True
             return count > 0
 
 	    #if husbandsArr not full, just say yes.
         return len(self.husbandsArr) < self.husbands 
 
-    def validEilatCombo(self):# if 2:3 = OK. Any other: let the main loop work it!
-        cm = 0
-        cf = 0
+    def isEvenHubArr(self):
+        count = 0
         for hubby in self.husbandsArr: #hubby is an integer.
             hubbyName = self.priorities[hubby]
-            if self.getSex(hubbyName) == "Male": 
-                cm += 1
-            elif self.getSex(hubbyName) == "Female":
-                cf += 1
-
-        maxN = self.husbands    
-        valid = cm == maxN/2 or cm == maxN/2+maxN%2 or cf == maxN or cm == maxN
-        if valid:
-            # pop this site out of globalEilatDenyArr
-            for x in globalEilatDenyArr:
-                if x[2] == self.name:
-                    globalEilatDenyArr.pop(globalEilatDenyArr.index(x))
-                    break
-        return valid #will return True if valid
-    def getEilatProbHubbyInt(self): #same as validEilatCombo but returns the hubby integer which is the culprit
-        cm = 0
-        mHubbyInt = -1
-        cf = 0
-        fHubbyInt = -1
-        maxN = self.husbands
-        for hubby in self.husbandsArr: #hubby is an integer. _HubbyInt stores least priority male or female
-            hubbyName = self.priorities[hubby]
-            if self.getSex(hubbyName) == "Male": 
-                mHubbyInt = hubby
-                cm += 1
-            elif self.getSex(hubbyName) == "Female":
-                fHubbyInt= hubby
-                cf += 1  
-            if cm + cf == maxN: #time find out the minority. This one will be shifted to the bottom of the priorities.
-                if cm < maxN/2: 
-                    return mHubbyInt
-                elif cf < maxN/2:
-                    return fHubbyInt
-    def blacklistHubby(self,name):
-        #change priorities and rank
-        HubbyInt = self.ranking[name]
-        self.priorities.pop(HubbyInt)
-        self.priorities.append(name) #so the name is last of the priority. list shifted.
-        self.ranking[self.priorities[-1]] = self.priorities.index(name)                              
+            for hubbyType in self.specHubbyArr:
+                if hubbyType[0] == "Male": #gotta check for this
+                    for h in hubbyType[1]:
+                        if h == hubbyName:
+                            count += 1
+        return count%2 == 0 #True if even.
 
     def husbandsFull(self):
         return len(self.husbandsArr) == self.husbands
@@ -271,6 +186,10 @@ class Woman(Person):
     def addHubby(self,hubbyName):
         self.husbandsArr.append(self.ranking[hubbyName])
         self.husbandsArr.sort()
+
+    def addEvenDeny(self,hubbyName):#used for Eilat
+        self.evenDenyArr.append(self.ranking[hubbyName])
+        self.evenDenyArr.sort()
 
     def popHubby(self):
         #return name of popped hubby
@@ -280,16 +199,10 @@ class Woman(Person):
             #1. reverse list
             rev = list(self.husbandsArr)
             rev.reverse() #it works because list is already sorted by rank
-            #2. for loop check if hubby is B7. Scan until find non- LastB7 hubby. Pop that!
+            #2. for loop check if hubby is B7. Scan until find non-B7 hubby. Pop that!
             name = ''
             for num in rev:
-                if self.priorities[num] in globalLastB7Pairs:
-                    if globalLastB7Pairs[self.priorities[num]] != self.name:#pop b/c not last B7
-                        rev.remove(num)
-                        name = self.priorities[num]
-                        break
-
-                else: #pop b/c not B7 person
+                if not self.eqHubbyType(self.priorities[num],'B7'):
                     rev.remove(num)
                     name = self.priorities[num]
                     break
@@ -354,15 +267,18 @@ def printPairings2(menArr):
     for man in menArr:
         #print man[1].name.ljust(10,' '),str(man[1].partner),'\tno '+str(man[1].proposalIndex)+' in preference'
         newArr.append([man[1].name,str(man[1].partner),man[1].proposalIndex])
-    newArr.sort(key=lambda x: x[2])
+    newArr.sort(key=lambda x: x[1])
     for man in newArr:
         print "Site: "+man[1].ljust(10,' ')+man[0].ljust(10,' ')+str(man[2])+" in preference"
 
     countArr = []
     for man in newArr:
         countArr.append(man[2])
-    c = Counter(countArr)
-    print str(c[1])+'\t'+str(c[2])+'\t'+str(c[3])+'\t'+str(c[4])+'\t'+str(c[5])+'\t'+str(c[6])+'\t'+str(c[7])+'\t'+str(c[8])
+    c = Counter(countArr).most_common()
+    statstr = ''
+    for i in c:
+        statstr += str(i[1])+'\t'
+    print statstr
 
 
 def printPairings3(womenArr,men, doCSV):
@@ -374,11 +290,11 @@ def printPairings3(womenArr,men, doCSV):
             partArr.append([woman[1].name,woman[1].priorities[hubby],hubby, men[woman[1].priorities[hubby]].proposalIndex])
         partArr.sort(key=lambda x: x[2])
         newArr.append(partArr)
-
-    for woman in newArr:
-        for hubby in woman:
-            print "Site: "+hubby[0].ljust(10,' ')+hubby[1].ljust(10,' ')+str(hubby[2]+1).ljust(3,' ')+"in Site's preference, "+str(hubby[3])+" in Student's preference"
-    if doCSV:
+    if not doCSV:
+        for woman in newArr:
+            for hubby in woman:
+                print "Site: "+hubby[0].ljust(10,' ')+hubby[1].ljust(10,' ')+str(hubby[2]+1).ljust(3,' ')+"in Site's preference, "+str(hubby[3])+" in Student's preference"
+    else:
         f = file('matched.csv','w')
         for woman in newArr:
             for hubby in woman:
@@ -395,132 +311,92 @@ def dict2Arr(dictionary):
 	return dictlist
 
 
+if __name__=="__main__":
+    verbose = len(sys.argv)>6
+    # get a list of the special condition husbands that can only match to special wives. arg #5
+    specHubbyArr = parseFile(sys.argv[5])
 
-def mainfunc():
+    # get a list of special sites #4 - type and siteArray dictionary.
+    specWivesArr = parseFile(sys.argv[4])
 
-    if __name__=="__main__":
-        global globalEilatDenyArr
-        verbose = len(sys.argv)>6
-        # get a list of the special condition husbands that can only match to special wives. arg #5
-        specHubbyArr = parseFile(sys.argv[5])
+    # initialize dictionary of men
+    menlist = parseFile(sys.argv[1])
+    men = dict()
+    for person in menlist:
+        men[person[0]] = Man(person[0],person[1],specHubbyArr)
+    unwedMen = men.keys()
+    
+    # initialize dictionary of women
+    womenlist = parseFile(sys.argv[2])
+    husbandReqs = parseFile2(sys.argv[3])
+    dictOne = dict(womenlist)
+    dictTwo = dict(husbandReqs)
+    combined = dict()
+    for name in set(dictOne.keys() + dictTwo.keys()):
+        combined[name] = [dictOne.get(name,0), dictTwo.get(name,0)]
+    combinedWomen = []
+    for name in combined:
+        combinedWomen.append([ name ] + combined[name])
 
-        # get a list of special sites #4 - type and siteArray dictionary.
-        specWivesArr = parseFile(sys.argv[4])
+    women = dict()
+    for person in combinedWomen:
+        women[person[0]] = Woman(person[0],person[1],person[2],specWivesArr,specHubbyArr)
 
-        # initialize dictionary of men
-        menlist = parseFile(sys.argv[1])
-        men = dict()
-        for person in menlist:
-            men[person[0]] = Man(person[0],person[1],specHubbyArr, specWivesArr)
-        unwedMen = men.keys()
-        
-        # initialize dictionary of women
-        womenlist = parseFile(sys.argv[2])
-        husbandReqs = parseFile2(sys.argv[3])
-        dictOne = dict(womenlist)
-        dictTwo = dict(husbandReqs)
-        combined = dict()
-        for name in set(dictOne.keys() + dictTwo.keys()):
-            combined[name] = [dictOne.get(name,0), dictTwo.get(name,0)]
-        combinedWomen = []
-        for name in combined:
-            combinedWomen.append([ name ] + combined[name])
+    doEvenHubby = True
+    ############################### the real algorithm ##################################
+    while unwedMen:
+        m = men[unwedMen[0]]             # pick arbitrary unwed man
+        w = women[m.nextProposal()]      # identify highest-rank woman to which
+                                         #    m has not yet proposed
+        if verbose:  print m.name,'proposes to',w.name
 
-        women = dict()
-        for person in combinedWomen:
-            women[person[0]] = Woman(person[0],person[1],person[2],specWivesArr,specHubbyArr)
-
-#        doEvenHubby = True
-        ############################### the real algorithm ##################################
-        while unwedMen:
-            m = men[unwedMen[0]]             # pick arbitrary unwed man
-            w = women[m.nextProposal()]      # identify highest-rank woman to which
-                                             #    m has not yet proposed
-            if verbose:  print m.name,'proposes to',w.name
-            if w.evaluateProposal(m.name):#means m.name is better match
-                if verbose: print '  ',w.name,'accepts the proposal'
+        if w.evaluateProposal(m.name):#means m.name is better match
+            if verbose: print '  ',w.name,'accepts the proposal'
+            
+            if w.husbandsFull():
+                # last hubby in hubbyArr is dumped, as that is least suitable
+                mOld = men[w.popHubby()]
+                mOld.partner = None
+                unwedMen.append(mOld.name)
                 
-                if w.husbandsFull():
-                    # last hubby in hubbyArr is dumped, as that is least suitable
-                    mOld = men[w.popHubby()]
-                    mOld.partner = None
-                    unwedMen.append(mOld.name)
-                    
-                    # then add the new man
-                    w.addHubby(m.name)
-                    unwedMen.remove(m.name)
-                    m.partner = w.name
-                    
-                else:	
-                    #if not full, and a nice suitor, just add him to the pack
+                # then add the new man
+                w.addHubby(m.name)
+                unwedMen.remove(m.name)
+                m.partner = w.name
+                '''
+                if w.myType == "Eilat" and len(unwedMen) == 0: #all filled up. Now gotta check if this is even..
+                    if not w.isEvenHubArr(): #TODO: add the person to blacklist, reset/run again entire while loop
+                                            #or - just remove the person, forcing while loop to run again with m's next proposal..
+                        mOld = men[w.popHubby()]
+                        mOld.partner = None
+                        unwedMen.append(mOld.name)                        
+                        
+                '''
+            else:	
+                #if not full, and a nice suitor, just add him to the pack
 
-                    unwedMen.remove(m.name)
-                    w.addHubby(m.name)
-                    m.partner = w.name
-            else:
-                if verbose: print '  ',w.name,'rejects the proposal'
-
-
-
-
-                
-            if verbose:
-                print "Tentative Pairings are as follows:"
-                printPairings(men)
-                print
-
-        # Eilat Check - for each of woman that is under 'Eilat' condition, do the following!
-        for eilatWoman in dict(specWivesArr)['Eilat']:
-        #if 'Eilat' in women:
-            if not women[eilatWoman].validEilatCombo():   
-                    
-            #we don't pick the last one. We pick such that globalEilatDenyArr ends up having one.
-                # if globalEilatDenyArr is zero, pick the last name in the priority. enter to globalEilatDenyArr
-                if len(globalEilatDenyArr) == 0:
-                    denyName = women[eilatWoman].priorities[women[eilatWoman].getEilatProbHubbyInt()]
-                    denyType = men[denyName].mySex
-                    globalEilatDenyArr.append([denyName,denyType,eilatWoman])#store the Eilat condition site name (3rd element)
-                else:
-                #globalEilatDenyArr has a name.
-                 
-                    '''
-                    It had a name before this run. And yet, we got here again.
-                    We know who got denied last run. We know that person's sex.
-                    This sex was not the right choice. So remove the current member in globalEilatDenyArr,
-                    and add the lowest priority opposite sex.
-                    '''
-          
-                    deniedSex = globalEilatDenyArr.pop()[1]
-                    hublist = list(women[eilatWoman].husbandsArr)
-                    hublist.reverse() #reverse the list so for loop goes in lowest priority
-                    
-                    for hus in hublist:
-                        name = women[eilatWoman].priorities[hus] #hus is an integer
-                        sex = men[name].mySex
-                        if sex != deniedSex: #got the person with a different sex
-                            #ok. add that to globalEilatDenyArr
-                            globalEilatDenyArr.append([name, sex,eilatWoman])
-
-                   
-
-        #####################################################################################
-        menArr = dict2Arr(men)
-        menArr.sort(key=lambda x: x[0])
-        womenArr = dict2Arr(women)
-        womenArr.sort(key=lambda x: x[0])
-     
-        # we should be done
-        print "Final Pairings are as follows:"
-        printPairings2(menArr)
-        printPairings3(womenArr,men, True)
-
-
-mainfunc() #if Eilat condition not met, this will alert
-if len(globalEilatDenyArr) != 0:
-    mainfunc() # Eilat condition is re-set, need to do a final run
-if len(globalEilatDenyArr) != 0:
-    mainfunc() # At this point, Eilat condition is finalized.
+                unwedMen.remove(m.name)
+                w.addHubby(m.name)
+                m.partner = w.name
+        else:
+            if verbose: print '  ',w.name,'rejects the proposal'
 
 
 
 
+            
+        if verbose:
+            print "Tentative Pairings are as follows:"
+            printPairings(men)
+            print
+
+    #####################################################################################
+    menArr = dict2Arr(men)
+    menArr.sort(key=lambda x: x[0])
+    womenArr = dict2Arr(women)
+    womenArr.sort(key=lambda x: x[0])
+ 
+    # we should be done
+    print "Final Pairings are as follows:"
+    printPairings2(menArr)
+    printPairings3(womenArr,men, False)
